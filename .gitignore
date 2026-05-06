@@ -12,3 +12,22 @@ himax_sdk/
 arc_toolchain/
 data/**/*.jpg
 data/**/*.png
+venv/
+
+# ARC GNU Toolchain (too large for git)
+arc_gnu_2020.09_prebuilt_elf32_le_linux_install/
+arc_gnu_2020.09_prebuilt_elf32_le_linux_install.tar.gz
+
+# Himax SDK downloaded dependencies (regeneratable via make download)
+himax_tflm/himax_we1_sdk/
+himax_tflm/image_gen_linux/
+himax_tflm/third_party/
+himax_tflm/*.img
+himax_tflm/*.elf
+himax_tflm/*.map
+himax_tflm/*.o
+himax_sdk/
+
+# Build objects
+**/*.o
+**/*.a
