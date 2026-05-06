@@ -1,0 +1,3 @@
+[submodule "himax_tflm"]
+	path = himax_tflm
+	url = https://github.com/HimaxWiseEyePlus/himax_tflm.git
