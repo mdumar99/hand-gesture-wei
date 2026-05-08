@@ -1,0 +1,129 @@
+#include <stdint.h>
+#include <string.h>
+#include "capture.h"
+#include "hx_drv_tflm.h"
+#include "gesture_model.h"
+
+#include "tensorflow/lite/micro/micro_interpreter.h"
+#include "tensorflow/lite/micro/micro_error_reporter.h"
+#include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
+#include "tensorflow/lite/schema/schema_generated.h"
+
+const char* kGestureLabels[] = {
+  "fist", "open_palm", "peace", "thumbs_up",
+  "swipe_left", "swipe_right", "wave"
+};
+const int kNumGestures = 7;
+
+static int8_t image_buffer[96 * 96];
+
+namespace {
+  tflite::MicroErrorReporter micro_error_reporter;
+  tflite::ErrorReporter* error_reporter = &micro_error_reporter;
+  const tflite::Model* model = nullptr;
+  tflite::MicroInterpreter* interpreter = nullptr;
+  TfLiteTensor* input = nullptr;
+  TfLiteTensor* output = nullptr;
+
+  // Only register ops used by our depthwise separable CNN
+  // This dramatically reduces code size vs AllOpsResolver
+  static tflite::MicroMutableOpResolver<10> resolver;
+
+  constexpr int kTensorArenaSize = 80 * 1024;
+  static uint8_t tensor_arena[kTensorArenaSize] __attribute__((section(".bss_all")));
+}
+
+int main() {
+  hx_drv_uart_initial(UART_BR_115200);
+  hx_drv_uart_print("Gesture Recognition v1.0\n");
+
+  // Register only ops needed by our model
+  resolver.AddConv2D();
+  resolver.AddDepthwiseConv2D();
+  resolver.AddMaxPool2D();
+  resolver.AddFullyConnected();
+  resolver.AddSoftmax();
+  resolver.AddReshape();
+  resolver.AddMean();
+  resolver.AddAdd();
+  resolver.AddQuantize();
+  resolver.AddDequantize();
+
+  // Init camera
+  if (!InitCamera()) {
+    hx_drv_uart_print("ERROR: Camera init failed\n");
+    while (1) {}
+  }
+  hx_drv_uart_print("Camera OK\n");
+
+  // Load model
+  model = tflite::GetModel(gesture_model_tflite);
+  if (model->version() != TFLITE_SCHEMA_VERSION) {
+    hx_drv_uart_print("ERROR: Model schema mismatch\n");
+    while (1) {}
+  }
+
+  static tflite::MicroInterpreter static_interpreter(
+      model, resolver, tensor_arena, kTensorArenaSize, error_reporter);
+  interpreter = &static_interpreter;
+
+  if (interpreter->AllocateTensors() != kTfLiteOk) {
+    hx_drv_uart_print("ERROR: AllocateTensors failed\n");
+    while (1) {}
+  }
+
+  input  = interpreter->input(0);
+  output = interpreter->output(0);
+
+  hx_drv_uart_print("Arena used: %d bytes\n", interpreter->arena_used_bytes());
+  hx_drv_uart_print("READY\n");
+
+  int frame_count = 0;
+
+  while (1) {
+    if (!CaptureFrame(image_buffer)) {
+      hx_drv_uart_print("ERROR: Capture failed\n");
+      continue;
+    }
+
+    // Model input: 96x96x1 int8
+    // input_scale=1.0, zero_point=-128
+    // So: int8_val = uint8_val - 128
+    int8_t* inp = input->data.int8;
+    for (int i = 0; i < 96*96; i++) {
+      inp[i] = (int8_t)((int)image_buffer[i] - 128);
+    }
+
+    if (interpreter->Invoke() != kTfLiteOk) {
+      hx_drv_uart_print("ERROR: Invoke failed\n");
+      continue;
+    }
+
+    int8_t* scores = output->data.int8;
+    int best_idx = 0;
+    int8_t best_score = scores[0];
+    for (int i = 1; i < kNumGestures; i++) {
+      if (scores[i] > best_score) {
+        best_score = scores[i];
+        best_idx = i;
+      }
+    }
+
+    float conf = (best_score - output->params.zero_point) *
+                  output->params.scale * 100.0f;
+
+    frame_count++;
+    hx_drv_uart_print("[%d] %-12s %.0f%%\n",
+                      frame_count, kGestureLabels[best_idx], conf);
+
+    if (conf > 70.0f) {
+      hx_drv_led_on(HX_DRV_LED_GREEN);
+      hx_drv_led_off(HX_DRV_LED_RED);
+    } else {
+      hx_drv_led_off(HX_DRV_LED_GREEN);
+      hx_drv_led_on(HX_DRV_LED_RED);
+    }
+  }
+
+  return 0;
+}
