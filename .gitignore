@@ -31,3 +31,7 @@ himax_sdk/
 # Build objects
 **/*.o
 **/*.a
+
+# Keep model files (they're needed for firmware)
+!training/model/gesture_model.tflite
+!training/model/gesture_model.h
