@@ -3,8 +3,6 @@
 #include "capture.h"
 #include "hx_drv_tflm.h"
 
-static int8_t image_buffer[IMG_SIZE];
-
 static int uart_readline(char* buf, int maxlen) {
   int i = 0;
   uint8_t c = 0;
@@ -23,13 +21,18 @@ static int uart_readline(char* buf, int maxlen) {
 
 int main() {
   hx_drv_uart_initial(UART_BR_115200);
-  hx_drv_uart_print("BOOTING\n");
 
-  hx_drv_uart_print("INIT_CAM\n");
+  // Initialize SPI for image streaming
+  if (hx_drv_spim_init() != HX_DRV_LIB_PASS) {
+    hx_drv_uart_print("ERROR: SPI init failed\n");
+    while (1) {}
+  }
+
   if (!InitCamera()) {
     hx_drv_uart_print("ERROR: Camera init failed\n");
     while (1) {}
   }
+
   hx_drv_uart_print("CAPTURE_READY\n");
 
   char cmd[32];
@@ -39,14 +42,17 @@ int main() {
     if (cmd[0] == 0) continue;
 
     if (__builtin_strcmp(cmd, "CAPTURE") == 0) {
-      if (!CaptureFrame(image_buffer)) {
+      uint8_t* jpeg_buf = 0;
+      uint32_t jpeg_size = 0;
+
+      if (!CaptureJpeg(&jpeg_buf, &jpeg_size)) {
         hx_drv_uart_print("ERROR: Capture failed\n");
         continue;
       }
-      hx_drv_uart_print("IMG_START\n");
-      for (int i = 0; i < IMG_SIZE; i++) {
-        hx_drv_uart_print("%c", (uint8_t)image_buffer[i]);
-      }
+
+      // Send size over UART, then image over SPI
+      hx_drv_uart_print("IMG_START %lu\n", jpeg_size);
+      hx_drv_spim_send((uint32_t)jpeg_buf, jpeg_size, SPI_TYPE_JPG);
       hx_drv_uart_print("IMG_END\n");
 
     } else if (__builtin_strcmp(cmd, "PING") == 0) {

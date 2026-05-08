@@ -3,15 +3,12 @@
 
 #include <stdint.h>
 
-// Image dimensions
 #define IMG_WIDTH  96
 #define IMG_HEIGHT 96
 #define IMG_SIZE   (IMG_WIDTH * IMG_HEIGHT)
 
-// Initialize camera
 bool InitCamera();
-
-// Capture one frame into buffer (int8_t as required by hx_drv_image_rescale)
+bool CaptureJpeg(uint8_t** jpeg_buf, uint32_t* jpeg_size);
 bool CaptureFrame(int8_t* image_buffer);
 
 #endif  // CAPTURE_H_

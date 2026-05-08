@@ -19,6 +19,18 @@ bool InitCamera() {
   return true;
 }
 
+bool CaptureJpeg(uint8_t** jpeg_buf, uint32_t* jpeg_size) {
+  if (!is_initialized) return false;
+
+  if (hx_drv_sensor_capture(&g_pimg_config) != HX_DRV_LIB_PASS) {
+    return false;
+  }
+
+  *jpeg_buf  = (uint8_t*)g_pimg_config.jpeg_address;
+  *jpeg_size = g_pimg_config.jpeg_size;
+  return true;
+}
+
 bool CaptureFrame(int8_t* image_buffer) {
   if (!is_initialized) return false;
 
