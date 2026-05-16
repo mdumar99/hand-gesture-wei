@@ -1,0 +1,14 @@
+build/
+*.elf
+*.bin
+*.map
+__pycache__/
+*.pyc
+.env
+venv/
+*.h5
+*.keras
+himax_sdk/
+arc_toolchain/
+data/**/*.jpg
+data/**/*.png

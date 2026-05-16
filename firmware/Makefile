@@ -34,7 +34,7 @@ CXXFLAGS := \
   -I$(TFLM_DIR)/third_party/kissfft
 
 LDFLAGS := \
-  -Wl,-marcv2elfx \
+  -Wl,-marcv2elfx -Wl,-T,memory.x \
   -Wl,--strip-debug \
   -Wl,--gc-sections \
   -Wl,-Map=gesture.map \

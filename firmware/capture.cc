@@ -32,12 +32,14 @@ bool CaptureJpeg(uint8_t** jpeg_buf, uint32_t* jpeg_size) {
 }
 
 bool CaptureFrame(int8_t* image_buffer) {
-  if (!is_initialized) return false;
+  if (!is_initialized) { hx_drv_uart_print("InitCam...\n"); if (!InitCamera()) { hx_drv_uart_print("InitCam FAIL\n"); return false; } hx_drv_uart_print("InitCam OK\n"); }
 
+  hx_drv_uart_print("Sensor capture...\n");
   if (hx_drv_sensor_capture(&g_pimg_config) != HX_DRV_LIB_PASS) {
+    hx_drv_uart_print("Capture FAIL\n");
     return false;
   }
-
+  hx_drv_uart_print("Rescale...\n");
   hx_drv_image_rescale((uint8_t*)g_pimg_config.raw_address,
                         g_pimg_config.img_width,
                         g_pimg_config.img_height,
